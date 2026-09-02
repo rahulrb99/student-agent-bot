@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+env
+.git
+data/topics/custom/*.json
+!data/topics/custom/.gitkeep
