@@ -10,6 +10,11 @@
     "url": "https://www.geeksforgeeks.org/software-engineering/scrum-framework/"
   },
   "practice_label": "a student project team",
+  "practice_options": [
+    "a student project team",
+    "a hackathon weekend",
+    "a two-week course assignment"
+  ],
   "practice_prompt": "Coach the student to plan one sprint for a student project. Follow: end-in-mind \u2192 sprint goal \u2192 backlog \u2192 tasks. Nudge if they jump ahead.",
   "practice_stages": [
     {

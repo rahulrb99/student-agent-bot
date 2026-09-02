@@ -10,6 +10,11 @@
     "url": "https://www.w3schools.in/software-engineering/uml-class-diagram/"
   },
   "practice_label": "a library system",
+  "practice_options": [
+    "a library system",
+    "a campus bike-share",
+    "a course waitlist"
+  ],
   "practice_prompt": "Coach the student to sketch a class diagram for a library system. Follow: end-in-mind \u2192 classes \u2192 attributes \u2192 relationships. Nudge if they skip ahead.",
   "practice_stages": [
     {

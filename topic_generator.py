@@ -9,7 +9,7 @@ import re
 from firecrawl import FirecrawlApp, ScrapeOptions
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from models import PROVIDERS, get_model
+from models import PROVIDERS, get_model, invoke_with_retry
 from topic_store import _slugify, validate_topic
 
 
@@ -95,24 +95,24 @@ Reading material summaries:
 Audience: first- or second-year undergrads in intro SE. They are beginners — no industry experience.
 
 Generate JSON with exactly these keys:
-- practice_label: short relatable scenario (e.g. "a campus photo-sharing app", "a library system")
-- practice_prompt: 1-2 sentences for the tutor during practice. Self-directed, step-by-step.
-  Use GENERIC cloud/SE terms — avoid AWS/Azure/GCP product names in this prompt.
+- practice_label: short default scenario name
+- practice_options: exactly 3 short scenario names the student can choose among (relatable).
+  First option may match practice_label. No vendor product names.
+- practice_prompt: 1-2 sentences for the tutor during practice. Self-directed.
+  The student chooses the scenario; the tutor only questions. Avoid AWS/Azure/GCP product names.
 - practice_stages: exactly 4 objects with "label" and "focus". Order:
   1) end in mind — what are we designing?
-  2) a foundational concept step (generic, e.g. storage or actors)
+  2) a foundational concept step
   3) a second concept step
   4) wrap-up piece
-  Stages must be freshman-friendly. No "name the AWS service" style steps.
-- check_questions: exactly 4 strings. Conceptual "in your own words" questions AFTER reading.
-  Start broad (what is it? why use it?). NO vendor/product trivia. NO certification-style questions.
-  Example good Q: "In your own words, what is cloud computing?"
-  Example bad Q: "Which AWS service stores objects?"
-- final_example: short model answer for wrap-up ONLY. May mention one vendor as illustration.
+  Stages must be freshman-friendly.
+- final_example: short model answer for wrap-up ONLY if the student asks to see one.
 
 Topic: {name}. Keep everything appropriate for week 1–4 of an intro SE class."""
 
-    response = model.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+    response = invoke_with_retry(
+        model, [SystemMessage(content=system), HumanMessage(content=human)]
+    )
     content = response.content if isinstance(response.content, str) else str(response.content)
     return _parse_json_response(content)
 
@@ -154,7 +154,7 @@ def generate_topic_draft(name: str, provider: str | None = None) -> dict:
         "practice_label": llm_part["practice_label"],
         "practice_prompt": llm_part["practice_prompt"],
         "practice_stages": llm_part["practice_stages"],
-        "check_questions": llm_part["check_questions"],
+        "practice_options": llm_part.get("practice_options") or [llm_part["practice_label"]],
         "final_example": llm_part["final_example"],
     }
 

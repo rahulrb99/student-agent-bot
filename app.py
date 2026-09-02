@@ -15,6 +15,7 @@ _ROOT = Path(__file__).resolve().parent
 load_dotenv(_ROOT / ".env")
 load_dotenv(_ROOT.parent / "env", override=False)
 
+from firecrawl_fetch import fetch_url_preview  # noqa: E402
 from topic_generator import generate_topic_draft  # noqa: E402
 from models import PROVIDERS  # noqa: E402
 from personalities import DEFAULT_PERSONALITY, list_personalities  # noqa: E402
@@ -28,7 +29,7 @@ from topics import (  # noqa: E402
     list_topics_detailed,
     save_custom_topic,
 )
-from tutor import Session, create_session, end_session, tutor_reply  # noqa: E402
+from tutor import Session, create_session, end_session, navigate_session, set_practice_scenario, tutor_reply  # noqa: E402
 
 app = FastAPI(title="SE Tutor Chat")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -57,6 +58,16 @@ class PersonalityRequest(BaseModel):
     personality: str
 
 
+class NavigateRequest(BaseModel):
+    session_id: str
+    phase: str
+
+
+class ScenarioRequest(BaseModel):
+    session_id: str
+    scenario: str
+
+
 class ResourceInput(BaseModel):
     title: str
     url: str
@@ -75,17 +86,13 @@ class TopicCreateRequest(BaseModel):
     practice_label: str
     practice_prompt: str
     practice_stages: list[PracticeStageInput]
-    check_questions: list[str]
+    practice_options: list[str] = []
+    check_questions: list[str] = []
     final_example: str
 
 
 class FetchUrlRequest(BaseModel):
     url: str
-
-
-class TopicGenerateRequest(BaseModel):
-    name: str
-    provider: str = Field(default="groq", pattern=r"^(groq|openai)$")
 
 
 class TopicGenerateRequest(BaseModel):
@@ -195,6 +202,34 @@ def update_personality(body: PersonalityRequest):
         raise HTTPException(404, "Session not found")
 
     session.personality = body.personality
+    return session.to_public()
+
+
+@app.post("/api/session/navigate")
+def change_phase(body: NavigateRequest):
+    session = sessions.get(body.session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    try:
+        navigate_session(session, body.phase)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Tutor error: {exc}") from exc
+    return session.to_public()
+
+
+@app.post("/api/session/scenario")
+def choose_scenario(body: ScenarioRequest):
+    session = sessions.get(body.session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    try:
+        set_practice_scenario(session, body.scenario)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Tutor error: {exc}") from exc
     return session.to_public()
 
 

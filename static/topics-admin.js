@@ -16,16 +16,20 @@
     byId("nav-chat").classList.toggle("active", view === "chat");
     byId("nav-topics").classList.toggle("active", view === "topics");
     if (view === "topics") loadCustomTopics();
+    if (window.updateBackToTopicsButton) window.updateBackToTopicsButton();
   }
 
-  function renderQuestions(questions) {
-    const box = byId("tf-questions");
+  function renderOptions(options) {
+    const box = byId("tf-options");
+    if (!box) return;
+    const values = options && options.length ? options : ["", "", ""];
+    while (values.length < 3) values.push("");
     box.innerHTML = "";
-    questions.forEach((q, i) => {
+    values.slice(0, 3).forEach((opt, i) => {
       box.innerHTML += `
         <div class="question-row">
-          <label>Q${i + 1}</label>
-          <input class="tf-q" value="${escapeAttr(q)}" required />
+          <label>Option ${i + 1}</label>
+          <input class="tf-opt" value="${escapeAttr(opt)}" required />
         </div>`;
     });
   }
@@ -60,7 +64,7 @@
     byId("tf-practice-label").value = draft.practice_label;
     byId("tf-practice-prompt").value = draft.practice_prompt;
     byId("tf-final").value = draft.final_example;
-    renderQuestions(draft.check_questions);
+    renderOptions(draft.practice_options);
     renderStages(draft.practice_stages);
     byId("topic-form").classList.remove("hidden");
     showMsg(byId("topic-form-error"), "");
@@ -143,7 +147,7 @@
   }
 
   function collectFormData() {
-    const questions = [...document.querySelectorAll(".tf-q")].map((input) => input.value.trim());
+    const options = [...document.querySelectorAll(".tf-opt")].map((input) => input.value.trim()).filter(Boolean);
     const stages = [...document.querySelectorAll(".tf-stage-label")].map((labelEl, idx) => {
       const focusEl = document.querySelector(`.tf-stage-focus[data-i="${idx}"]`);
       return { label: labelEl.value.trim(), focus: focusEl.value.trim() };
@@ -160,9 +164,9 @@
         title: byId("tf-r2-title").value.trim(),
         url: byId("tf-r2-url").value.trim(),
       },
-      practice_label: byId("tf-practice-label").value.trim(),
+      practice_label: byId("tf-practice-label").value.trim() || options[0] || "",
       practice_prompt: byId("tf-practice-prompt").value.trim(),
-      check_questions: questions,
+      practice_options: options,
       practice_stages: stages,
       final_example: byId("tf-final").value.trim(),
     };

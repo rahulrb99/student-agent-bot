@@ -18,7 +18,6 @@ REQUIRED_KEYS = {
     "practice_label",
     "practice_prompt",
     "practice_stages",
-    "check_questions",
     "final_example",
 }
 
@@ -59,9 +58,6 @@ def validate_topic(data: dict, *, allow_missing_id: bool = False) -> dict:
         if not isinstance(block, dict) or not block.get("title") or not block.get("url"):
             raise TopicValidationError(f"{key} must have title and url")
 
-    if not isinstance(topic["check_questions"], list) or not topic["check_questions"]:
-        raise TopicValidationError("check_questions must be a non-empty list")
-
     if not isinstance(topic["practice_stages"], list) or not topic["practice_stages"]:
         raise TopicValidationError("practice_stages must be a non-empty list")
 
@@ -69,9 +65,15 @@ def validate_topic(data: dict, *, allow_missing_id: bool = False) -> dict:
         if not isinstance(stage, dict) or not stage.get("label") or not stage.get("focus"):
             raise TopicValidationError(f"practice_stages[{i}] needs label and focus")
 
-    topic["check_questions"] = [str(q).strip() for q in topic["check_questions"] if str(q).strip()]
-    if not topic["check_questions"]:
-        raise TopicValidationError("check_questions cannot be empty")
+    raw_questions = topic.get("check_questions") or []
+    if raw_questions and not isinstance(raw_questions, list):
+        raise TopicValidationError("check_questions must be a list if present")
+    topic["check_questions"] = [str(q).strip() for q in raw_questions if str(q).strip()]
+
+    raw_options = topic.get("practice_options") or []
+    if raw_options and not isinstance(raw_options, list):
+        raise TopicValidationError("practice_options must be a list if present")
+    topic["practice_options"] = [str(o).strip() for o in raw_options if str(o).strip()]
 
     topic["practice_stages"] = [
         {"label": str(s["label"]).strip(), "focus": str(s["focus"]).strip()}
@@ -160,7 +162,7 @@ def list_topics_detailed() -> list[dict]:
             "number": t.get("number", 100),
             "builtin": t.get("builtin", False),
             "practice_label": t["practice_label"],
-            "check_questions_count": len(t["check_questions"]),
+            "practice_options": t.get("practice_options") or [],
             "practice_stages_count": len(t["practice_stages"]),
         }
         for t in sorted(all_topics().values(), key=lambda x: (not x.get("builtin", False), x.get("number", 100)))

@@ -10,11 +10,16 @@
     "url": "https://www.w3schools.in/software-engineering/uml-use-case-diagram/"
   },
   "practice_label": "DoorDash",
-  "practice_prompt": "Coach the student to build a use case diagram for DoorDash. Follow the stage order: end-in-mind \u2192 actors \u2192 use cases \u2192 system boundary. Nudge if they skip ahead. One question per turn \u2014 no full diagram yet.",
+  "practice_options": [
+    "DoorDash",
+    "a campus dining app",
+    "a library checkout kiosk"
+  ],
+  "practice_prompt": "Coach the student to build a use case diagram for the scenario they chose. Follow the stage order. One question per turn \u2014 no full diagram yet.",
   "practice_stages": [
     {
       "label": "end in mind",
-      "focus": "Clarify what we're building \u2014 a use case diagram for DoorDash. Ask what they think the diagram should show at a high level."
+      "focus": "Clarify what we're building \u2014 a use case diagram for the scenario they chose. Ask what they think the diagram should show at a high level."
     },
     {
       "label": "actors",

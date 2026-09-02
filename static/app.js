@@ -87,9 +87,27 @@ function setComposerEnabled(enabled) {
   $("composer").classList.toggle("disabled", !enabled);
 }
 
+function onTopicSelectionPage() {
+  return !$("view-chat").classList.contains("hidden") && !$("setup").classList.contains("hidden");
+}
+
+function updateBackToTopicsButton() {
+  const show = !onTopicSelectionPage();
+  $("back-topics-btn").classList.toggle("hidden", !show);
+}
+
+function showChatView() {
+  $("view-topics").classList.add("hidden");
+  $("view-chat").classList.remove("hidden");
+  $("nav-chat").classList.add("active");
+  $("nav-topics").classList.remove("active");
+}
+
 function showChatScreen() {
+  showChatView();
   $("setup").classList.add("hidden");
   $("chat-screen").classList.remove("hidden");
+  updateBackToTopicsButton();
 }
 
 function showSetupScreen() {
@@ -99,7 +117,21 @@ function showSetupScreen() {
   setComposerEnabled(true);
   $("ended-banner").classList.add("hidden");
   $("complete-banner").classList.add("hidden");
+  $("ended-banner").textContent =
+    "Session ended — download your transcript or reset to start fresh.";
+  updateBackToTopicsButton();
+  refreshResumePanel();
 }
+
+function backToTopicSelection() {
+  showChatView();
+  showSetupScreen();
+  showError($("chat-error"), "");
+  showError($("setup-error"), "");
+}
+
+window.updateBackToTopicsButton = updateBackToTopicsButton;
+window.backToTopicSelection = backToTopicSelection;
 
 function updateSessionUI(data) {
   session = data;
@@ -122,16 +154,102 @@ function updateSessionUI(data) {
 
   $("complete-banner").classList.toggle("hidden", !complete);
   if (complete) {
-    const left = data.complete_followups_remaining ?? 0;
     $("complete-banner").textContent =
-      `Lesson complete — ask up to ${left} more follow-up${left === 1 ? "" : "s"}, ` +
-      `or say "no doubts" to close. You can also click End session.`;
+      "Wrap-up — say what you can do now and what’s still fuzzy. Ask for a model example if you want one, jump back if something is vague, or say \"no doubts\" to close.";
   }
 
   $("ended-banner").classList.toggle("hidden", !ended);
   $("end-btn").disabled = ended;
 
+  renderLessonNav(data);
+  renderScenarioPicker(data);
+
   saveToBrowser(data);
+}
+
+function renderLessonNav(data) {
+  const bar = $("lesson-nav");
+  if (!bar) return;
+  if (data.status === "ended" || !data.nav) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
+  }
+  bar.hidden = false;
+  bar.innerHTML = "";
+  for (const item of data.nav) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "nav-phase" + (item.current ? " current" : "");
+    btn.textContent = item.label;
+    btn.disabled = !item.unlocked || data.status === "ended";
+    btn.addEventListener("click", () => navigatePhase(item.id));
+    bar.appendChild(btn);
+  }
+}
+
+function renderScenarioPicker(data) {
+  const box = $("scenario-picker");
+  if (!box) return;
+  const show = data.awaiting_scenario && data.status !== "ended";
+  box.classList.toggle("hidden", !show);
+  box.innerHTML = "";
+  if (!show) return;
+
+  const label = document.createElement("p");
+  label.className = "picker-label";
+  label.textContent = "Pick a practice scenario:";
+  box.appendChild(label);
+
+  for (const option of data.practice_options || []) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "scenario-chip";
+    btn.textContent = option;
+    btn.addEventListener("click", () => chooseScenario(option));
+    box.appendChild(btn);
+  }
+}
+
+async function navigatePhase(phase) {
+  if (!session?.session_id || session.ended) return;
+  if (phase === session.phase) return;
+  showError($("chat-error"), "");
+  try {
+    const res = await fetch("/api/session/navigate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: session.session_id, phase }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Could not move");
+    }
+    updateSessionUI(await res.json());
+  } catch (e) {
+    showError($("chat-error"), e.message);
+  }
+}
+
+async function chooseScenario(scenario) {
+  if (!session?.session_id || session.ended) return;
+  showError($("chat-error"), "");
+  setComposerEnabled(false);
+  try {
+    const res = await fetch("/api/session/scenario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: session.session_id, scenario }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Could not set scenario");
+    }
+    updateSessionUI(await res.json());
+  } catch (e) {
+    showError($("chat-error"), e.message);
+    setComposerEnabled(!session?.ended);
+  }
 }
 
 function refreshResumePanel() {
@@ -262,6 +380,11 @@ function viewSavedTranscript() {
   $("model-badge").textContent = (saved.provider || "").toUpperCase();
   renderMessages(saved.messages);
   setComposerEnabled(false);
+  if ($("lesson-nav")) {
+    $("lesson-nav").hidden = true;
+    $("lesson-nav").innerHTML = "";
+  }
+  $("scenario-picker").classList.add("hidden");
   $("ended-banner").classList.remove("hidden");
   $("ended-banner").textContent =
     "Viewing saved transcript only — server session may be gone. Reset to start a new chat.";
@@ -373,6 +496,8 @@ async function changePersonality(personality) {
     saveToBrowser(session);
   }
 }
+
+$("back-topics-btn").addEventListener("click", backToTopicSelection);
 
 $("start-btn").addEventListener("click", startSession);
 $("resume-btn").addEventListener("click", resumeSession);

@@ -11,7 +11,12 @@
     "url": "https://example.com/article-2"
   },
   "practice_label": "a real-world example",
-  "practice_prompt": "Coach the student through hands-on practice. Follow the stage order. Nudge if they skip ahead.",
+  "practice_options": [
+    "a campus app you use",
+    "a small system you invent",
+    "the example from the reading"
+  ],
+  "practice_prompt": "The student proposes; you question and constrain. Follow the stage order. One question per turn.",
   "practice_stages": [
     {
       "label": "end in mind",
@@ -30,11 +35,5 @@
       "focus": "Final piece of the exercise before lesson complete."
     }
   ],
-  "check_questions": [
-    "First check-in question — ask what they understand.",
-    "Second question with a simple example.",
-    "Third question to probe deeper.",
-    "Fourth question before practice."
-  ],
-  "final_example": "A short model answer shown only at wrap-up."
+  "final_example": "A short model answer shown only at wrap-up if the student asks."
 }

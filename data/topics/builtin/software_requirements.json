@@ -10,6 +10,11 @@
     "url": "https://www.w3schools.in/software-engineering/software-requirements/"
   },
   "practice_label": "a campus food-ordering app",
+  "practice_options": [
+    "a campus food-ordering app",
+    "a dorm laundry booking app",
+    "a student club event signup"
+  ],
   "practice_prompt": "Coach the student to draft requirements for a campus food-ordering app. Follow: end-in-mind \u2192 functional \u2192 non-functional \u2192 testable examples. Nudge if they jump ahead. One piece at a time.",
   "practice_stages": [
     {
