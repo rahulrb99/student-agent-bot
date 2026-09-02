@@ -117,7 +117,7 @@
     const status = byId("generate-status");
     btn.disabled = true;
     showMsg(byId("generate-error"), "");
-    status.textContent = "Searching W3Schools & GeeksforGeeks and drafting lesson…";
+    status.textContent = "Searching beginner tutorials and drafting lesson…";
     status.classList.remove("hidden");
     status.classList.add("loading");
 

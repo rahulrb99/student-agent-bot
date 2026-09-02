@@ -2,12 +2,12 @@
   "number": 3,
   "name": "UML Class Diagrams",
   "resource": {
-    "title": "Class Diagram \u2014 GeeksforGeeks",
-    "url": "https://www.geeksforgeeks.org/software-engineering/class-diagram-for-library-management-system/"
+    "title": "UML Class Diagram \u2014 GeeksforGeeks",
+    "url": "https://www.geeksforgeeks.org/system-design/unified-modeling-language-uml-class-diagrams/"
   },
   "alt_resource": {
-    "title": "UML Class Diagram \u2014 W3Schools.in",
-    "url": "https://www.w3schools.in/software-engineering/uml-class-diagram/"
+    "title": "UML Class Diagram \u2014 TutorialsPoint",
+    "url": "https://www.tutorialspoint.com/uml/uml_class_diagram.htm"
   },
   "practice_label": "a library system",
   "practice_options": [

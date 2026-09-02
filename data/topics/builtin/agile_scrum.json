@@ -2,12 +2,12 @@
   "number": 4,
   "name": "Agile & Scrum Basics",
   "resource": {
-    "title": "Agile Model (SDLC) \u2014 W3Schools.in",
-    "url": "https://www.w3schools.in/software-engineering/sdlc-agile-model/"
+    "title": "SDLC Agile Model \u2014 TutorialsPoint",
+    "url": "https://www.tutorialspoint.com/sdlc/sdlc_agile_model.htm"
   },
   "alt_resource": {
     "title": "Scrum Framework \u2014 GeeksforGeeks",
-    "url": "https://www.geeksforgeeks.org/software-engineering/scrum-framework/"
+    "url": "https://www.geeksforgeeks.org/software-engineering/what-is-scrum/"
   },
   "practice_label": "a student project team",
   "practice_options": [

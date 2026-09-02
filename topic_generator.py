@@ -5,12 +5,40 @@ from __future__ import annotations
 import json
 import os
 import re
+from urllib.parse import urlparse
 
 from firecrawl import FirecrawlApp, ScrapeOptions
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from models import PROVIDERS, get_model, invoke_with_retry
 from topic_store import _slugify, validate_topic
+
+# Prefer beginner tutorials. w3schools.in /software-engineering/ paths often 404,
+# so TutorialsPoint / Javatpoint are real fallbacks — never a search-page URL.
+READING_SITES = (
+    "w3schools.in",
+    "w3schools.com",
+    "geeksforgeeks.org",
+    "tutorialspoint.com",
+    "javatpoint.com",
+)
+
+_SKIP_URL_SNIPPETS = (
+    "/search",
+    "/tag/",
+    "/tags/",
+    "/category/",
+    "/author/",
+    "/login",
+    "/signup",
+    "/premium",
+    "/courses/",
+    "/practice",
+    "/quiz",
+    "/user/",
+    "/forums",
+    "/jobs",
+)
 
 
 def pick_provider(preferred: str | None = None) -> str:
@@ -28,6 +56,28 @@ def _result_field(result, key: str, default=""):
     return getattr(result, key, default)
 
 
+def _looks_like_article(url: str, site: str) -> bool:
+    if not url or site not in url.lower():
+        return False
+    lower = url.lower()
+    if any(snippet in lower for snippet in _SKIP_URL_SNIPPETS):
+        return False
+    path = urlparse(url).path.rstrip("/")
+    segments = [part for part in path.split("/") if part]
+    return len(segments) >= 1
+
+
+def _clean_excerpt(markdown: str) -> str:
+    markdown = re.sub(r"\s+", " ", markdown or "").strip()
+    return markdown[:2500]
+
+
+def _title_overlap(title: str, topic_name: str) -> int:
+    title_words = set(re.findall(r"[a-z0-9]+", title.lower()))
+    topic_words = set(re.findall(r"[a-z0-9]+", topic_name.lower()))
+    return len(title_words & topic_words)
+
+
 def _search_site(topic_name: str, site: str) -> dict | None:
     api_key = os.getenv("FIRECRAWL_API_KEY")
     if not api_key:
@@ -39,6 +89,7 @@ def _search_site(topic_name: str, site: str) -> dict | None:
         f"{topic_name} software engineering site:{site}",
     ]
 
+    candidates: list[dict] = []
     for query in queries:
         response = app.search(
             query=query,
@@ -54,14 +105,59 @@ def _search_site(topic_name: str, site: str) -> dict | None:
 
         for result in data:
             url = _result_field(result, "url")
-            if not url or site not in url.lower():
+            if not _looks_like_article(url, site):
                 continue
+            excerpt = _clean_excerpt(_result_field(result, "markdown") or "")
             title = _result_field(result, "title") or f"{topic_name} — {site}"
-            markdown = _result_field(result, "markdown") or ""
-            markdown = re.sub(r"\s+", " ", markdown).strip()[:2500]
-            return {"title": title, "url": url, "excerpt": markdown}
+            blob = f"{title} {excerpt}".lower()
+            if len(excerpt) < 120 or re.search(r"\b404\b|page not found|page doesn.?t exist", blob):
+                continue
+            candidates.append({"title": title, "url": url, "excerpt": excerpt})
 
-    return None
+        if candidates:
+            break
+
+    if not candidates:
+        return None
+
+    candidates.sort(
+        key=lambda item: (
+            _title_overlap(item["title"], topic_name),
+            len(item["excerpt"]),
+        ),
+        reverse=True,
+    )
+    return candidates[0]
+
+
+def _find_two_resources(name: str) -> tuple[dict, dict]:
+    found: list[dict] = []
+    seen_urls: set[str] = set()
+
+    for site in READING_SITES:
+        hit = _search_site(name, site)
+        if not hit:
+            continue
+        url = hit["url"].rstrip("/")
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        found.append(hit)
+        if len(found) >= 2:
+            break
+
+    if not found:
+        raise RuntimeError(
+            f"Could not find beginner articles for '{name}'. "
+            "Try a more specific topic name."
+        )
+    if len(found) < 2:
+        raise RuntimeError(
+            f"Found only one working article for '{name}'. "
+            "Try a more specific name, or paste a second URL by hand after generating."
+        )
+
+    return found[0], found[1]
 
 
 def _parse_json_response(text: str) -> dict:
@@ -80,8 +176,8 @@ def _llm_fill_topic(
 ) -> dict:
     model = get_model(provider)
     context = (
-        f"Primary (W3Schools):\n{resource.get('excerpt', '')[:2000]}\n\n"
-        f"Secondary (GeeksforGeeks):\n{alt_resource.get('excerpt', '')[:2000]}"
+        f"Primary:\n{resource.get('excerpt', '')[:2000]}\n\n"
+        f"Secondary:\n{alt_resource.get('excerpt', '')[:2000]}"
     )
 
     system = """You create tutoring topic configs for a freshman/sophomore Software Engineering course.
@@ -123,34 +219,14 @@ def generate_topic_draft(name: str, provider: str | None = None) -> dict:
         raise ValueError("Topic name is required")
 
     provider = pick_provider(provider)
-
-    w3 = _search_site(name, "w3schools.in") or _search_site(name, "w3schools.com")
-    gfg = _search_site(name, "geeksforgeeks.org")
-
-    if not w3 and not gfg:
-        raise RuntimeError(
-            f"Could not find W3Schools or GeeksforGeeks articles for '{name}'. "
-            "Try a more specific topic name."
-        )
-
-    if not w3:
-        w3, gfg = gfg, w3
-    if not gfg:
-        gfg = {
-            "title": f"{name} — GeeksforGeeks (search manually)",
-            "url": f"https://www.geeksforgeeks.org/search/{_slugify(name).replace('_', '-')}/",
-            "excerpt": "",
-        }
-    if not w3:
-        w3 = gfg
-
-    llm_part = _llm_fill_topic(name, provider, w3, gfg)
+    primary, alt = _find_two_resources(name)
+    llm_part = _llm_fill_topic(name, provider, primary, alt)
 
     draft = {
         "id": _slugify(name),
         "name": name,
-        "resource": {"title": w3["title"], "url": w3["url"]},
-        "alt_resource": {"title": gfg["title"], "url": gfg["url"]},
+        "resource": {"title": primary["title"], "url": primary["url"]},
+        "alt_resource": {"title": alt["title"], "url": alt["url"]},
         "practice_label": llm_part["practice_label"],
         "practice_prompt": llm_part["practice_prompt"],
         "practice_stages": llm_part["practice_stages"],
